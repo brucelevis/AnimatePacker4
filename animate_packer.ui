@@ -102,7 +102,7 @@
          <item>
           <widget class="AnimationsTable" name="animationTable">
            <attribute name="horizontalHeaderVisible">
-            <bool>true</bool>
+            <bool>false</bool>
            </attribute>
            <attribute name="horizontalHeaderCascadingSectionResizes">
             <bool>false</bool>
@@ -117,7 +117,7 @@
             <bool>true</bool>
            </attribute>
            <attribute name="verticalHeaderVisible">
-            <bool>true</bool>
+            <bool>false</bool>
            </attribute>
            <attribute name="verticalHeaderCascadingSectionResizes">
             <bool>false</bool>
@@ -217,7 +217,16 @@
              </sizepolicy>
             </property>
             <layout class="QHBoxLayout" name="horizontalLayout_2">
-             <property name="margin">
+             <property name="leftMargin">
+              <number>0</number>
+             </property>
+             <property name="topMargin">
+              <number>0</number>
+             </property>
+             <property name="rightMargin">
+              <number>0</number>
+             </property>
+             <property name="bottomMargin">
               <number>0</number>
              </property>
              <item>

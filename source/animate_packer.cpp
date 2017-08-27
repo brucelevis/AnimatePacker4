@@ -214,9 +214,10 @@ void AnimatePacker::openXml(QString path) {
 }
 
 void AnimatePacker::saveXml() {
+    // 检查路径
     if (path.isNull()) {
-        QString tempPath = QFileDialog::getSaveFileName(this,
-                                                        tr("Choose to preserve location"), ".", tr("Xml Files(*.xml)"));
+        QString tempPath = QFileDialog::getSaveFileName(this, tr("Choose to preserve location"),
+                                                        ".", tr("Xml Files(*.xml)"));
 
         if (tempPath.isEmpty()) {
             return;
@@ -224,86 +225,69 @@ void AnimatePacker::saveXml() {
 
         path = tempPath;
     }
-
+    // 打开文件
     QFile file(path);
-
+    // 处理错误
     if (!file.open(QIODevice::WriteOnly)) {
         QMessageBox::warning(
                     this,
                     QObject::tr("Write failure"),
-                    QObject::tr("Cannot write file \n%1\n%2").arg(file.fileName()).arg(
-                        file.errorString()));
+                    QObject::tr("Cannot write file \n%1\n%2")
+                        .arg(file.fileName())
+                        .arg(file.errorString())
+        );
         return;
     }
-
-    QDomDocument doc;
-
+    // DOM文件-plist类型
+    QDomDocument doc("plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\"");
+    // XML版本声明
     QDomProcessingInstruction instruction;
-    instruction = doc.createProcessingInstruction("xml",
-                                                  "version=\"1.0\" encoding=\"UTF-8\"");
-    doc.appendChild(instruction); //写入文件头
-
-    QDomElement root = doc.createElement("root");
-    doc.appendChild(root);
-
-    //plist
+    instruction = doc.createProcessingInstruction("xml", "version=\"1.0\" encoding=\"UTF-8\"");
+    doc.appendChild(instruction);
+    // Plist
     QDomElement plistsElement = doc.createElement("plists");
-    root.appendChild(plistsElement);
-    for (int i = 0; i < ui.plistList->count(); i++) {
-        QDomElement plistElement = doc.createElement("plist");
-        plistsElement.appendChild(plistElement);
-
-        //使用文本节点
-        QDomText plistText = doc.createTextNode(ui.plistList->item(i)->text());
-        plistElement.appendChild(plistText);
-    }
-
-    //animation and spriteFrames
-    QDomElement animationsElement = doc.createElement("animations");
-    root.appendChild(animationsElement);
+    plistsElement.setAttribute("version", "1.0");
+    doc.appendChild(plistsElement);
+    // 根Dict
+    QDomElement rootDict = doc.createElement("dict");
+    doc.appendChild(rootDict);
+    // key = animations
+    QDomElement key = doc.createElement("key");
+    key.appendChild(doc.createTextNode("animations"));
+    rootDict.appendChild(key);
+    // animation Dict
+    QDomElement animationsDict = doc.createElement("dict");
+    rootDict.appendChild(animationsDict);
+    // 所有动画
     for (int i = 0; i < ui.animationTable->rowCount(); i++) {
-        QDomElement animationElement = doc.createElement("animation");
-        animationsElement.appendChild(animationElement);
-
-        QDomElement nameElement = doc.createElement("name");
-        animationElement.appendChild(nameElement);
-        //使用文本节点
-        QDomText nameText = doc.createTextNode(ui.animationTable->item(i, 0)->text());
-        nameElement.appendChild(nameText);
-
-        QDomElement delayElement = doc.createElement("delay");
-        animationElement.appendChild(delayElement);
-        //使用文本节点
-        QDomText delayText = doc.createTextNode(ui.animationTable->item(i, 1)->text());
-        delayElement.appendChild(delayText);
-
-        QDomElement flipXElement = doc.createElement("flipX");
-        animationElement.appendChild(flipXElement);
-        //使用文本节点
-        QString flipXStr=ui.animationTable->item(i, 2)->checkState()==Qt::Checked?"true":"false";
-        QDomText flipXText = doc.createTextNode(flipXStr);
-        flipXElement.appendChild(flipXText);
-
-        QDomElement flipYElement = doc.createElement("flipY");
-        animationElement.appendChild(flipYElement);
-        //使用文本节点
-        QString flipYStr=ui.animationTable->item(i, 3)->checkState()==Qt::Checked?"true":"false";
-        QDomText flipYText = doc.createTextNode(flipYStr);
-        flipYElement.appendChild(flipYText);
-
+        // 该动画名字
+        key = doc.createElement("key");
+        key.appendChild(doc.createTextNode(ui.animationTable->item(i, 0)->text()));
+        animationsDict.appendChild(key);
+        // 该动画字典
+        QDomElement nowDict = doc.createElement("dict");
+        animationsDict.appendChild(nowDict);
+        // 写入延迟
+        key = doc.createElement("key");
+        key.appendChild(doc.createTextNode("delay"));
+        nowDict.appendChild(key);
+        QDomElement delay = doc.createElement("real");
+        delay.appendChild(doc.createTextNode(ui.animationTable->item(i, 1)->text()));
+        nowDict.appendChild(delay);
+        // 写入动画帧
+        QDomElement framesArray = doc.createElement("array");
+        nowDict.appendChild(framesArray);
         QListWidget *spriteFramesList = spriteFramesLists[i];
         for (int j = 0; j < spriteFramesList->count(); j++) {
-            QDomElement spriteFrameElement = doc.createElement("spriteFrame");
-            animationElement.appendChild(spriteFrameElement);
-
-            //使用文本节点
-            QDomText spriteFrameText = doc.createTextNode(spriteFramesList->item(j)->text());
-            spriteFrameElement.appendChild(spriteFrameText);
+            QDomElement frame = doc.createElement("string");
+            frame.appendChild(doc.createTextNode(spriteFramesList->item(j)->text()));
+            framesArray.appendChild(frame);
         }
     }
-
+    // 输出文件
     QTextStream out(&file);
-    doc.save(out, 4); //输出文件，4表示tab是4个空格
+    // tab为4个空格长度
+    doc.save(out, 4);
     file.close();
 }
 
@@ -838,15 +822,14 @@ void AnimatePacker::closeEvent(QCloseEvent *event) {
 }
 
 void AnimatePacker::about() {
-    QMessageBox::about(this, tr("About"),
-                   #if defined(Q_OS_WIN32)
-                       tr("<h2>AnimatePacker for Win32 v2.04 Build1</h2>"
-                      #elif defined(Q_OS_MAC)
-                       tr("<h2>AnimatePacker for Mac v2.04 Build1</h2>"
-                      #endif
-                          "<p>author:goldlion"
-                          "<p>email:gdgoldlion@gmail.com"
-                          "<p>qq:233424570"));
+    QMessageBox::about(
+                this,
+                tr("About"),
+                tr("<h2>AnimatePacker4</h2>"
+                  "<p>author: goldlion, KenLee</p>"
+                  "<p>email: ken_4000@qq.com</p>"
+                  "<p>github: <a href=\"https://github.com/hellokenlee/AnimatePacker\">AnimatePacker4</a></p>")
+    );
 }
 
 QDomNode AnimatePacker::findMetadataDict(QDomElement root)
