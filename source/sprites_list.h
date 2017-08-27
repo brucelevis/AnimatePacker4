@@ -9,8 +9,11 @@
 #define SPRITES_LIST_H_
 
 #include <QtGui>
+#include <QListWidget>
+#include <QApplication>
 
-class SpritesList: public QListWidget {
+class SpritesList: public QListWidget
+{
 Q_OBJECT
 public:
 	SpritesList(QWidget *parent = 0);

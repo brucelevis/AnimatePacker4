@@ -9,6 +9,8 @@
 #define SPRITE_FRAMES_LIST_H_
 
 #include <QtGui>
+#include <QListWidget>
+#include <QShortcut>
 
 class SpriteFramesList: public QListWidget {
 Q_OBJECT

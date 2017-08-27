@@ -3,8 +3,14 @@
 
 #include <vector>
 #include <map>
+
 #include <QtGui>
 #include <QtXml>
+#include <QColor>
+#include <QColorDialog>
+#include <QFileDialog>
+#include <QMessageBox>
+
 #include "ui_animate_packer.h"
 
 class AnimatePacker: public QMainWindow {

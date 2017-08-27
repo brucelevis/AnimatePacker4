@@ -12,7 +12,8 @@ AnimationsTable::AnimationsTable(QWidget *parent) :
 	connect(this, SIGNAL(itemSelectionChanged()), this, SLOT(changeItem()));
 
 	//均分列宽
-	horizontalHeader()->setResizeMode(QHeaderView::Stretch);
+    //horizontalHeader()->setResizeMode(QHeaderView::Stretch);
+    horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
 
 	//添加快捷键，获得焦点时，点delete删除item
 	QShortcut* shortcut = new QShortcut(QKeySequence(Qt::Key_Delete), this);

@@ -1,8 +1,9 @@
-﻿#include "animate_packer.h"
-#include <algorithm>
+﻿#include <algorithm>
+
 #include <QtDebug>
 #include <QtGui>
-#include "algorithm"
+
+#include "animate_packer.h"
 #include "sprite_frames_list.h"
 
 using namespace std;

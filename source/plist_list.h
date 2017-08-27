@@ -9,6 +9,8 @@
 #define PLIST_LIST_H_
 
 #include <QtGui>
+#include <QListWidget>
+#include <QShortcut>
 
 class PlistList: public QListWidget {
 Q_OBJECT

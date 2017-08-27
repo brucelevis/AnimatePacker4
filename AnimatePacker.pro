@@ -7,7 +7,8 @@
 QT += \
     core \
     gui \
-    xml
+    xml \
+    widgets
 
 TARGET = AnimatePacker
 

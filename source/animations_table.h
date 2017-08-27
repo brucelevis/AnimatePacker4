@@ -9,6 +9,9 @@
 #define ANIMATIONS_LIST_H_
 
 #include <QtGui>
+#include <QTableWidget>
+#include <QShortcut>
+#include <QHeaderView>
 
 class AnimationsTable: public QTableWidget {
 Q_OBJECT
