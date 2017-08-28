@@ -12,6 +12,7 @@
 #include <QTableWidget>
 #include <QShortcut>
 #include <QHeaderView>
+#include <QStringList>
 
 class AnimationsTable: public QTableWidget {
 Q_OBJECT

@@ -54,6 +54,7 @@ AnimatePacker::AnimatePacker(QWidget *parent) :	QMainWindow(parent) {
     connect(ui.actionCopy,SIGNAL(triggered()),this,SLOT(copyAnimation()));
     connect(ui.actionIconMode,SIGNAL(triggered()),this,SLOT(changeIconMode()));
     connect(ui.actionListMode,SIGNAL(triggered()),this,SLOT(changeListMode()));
+
 }
 
 AnimatePacker::~AnimatePacker() {
@@ -114,40 +115,44 @@ void AnimatePacker::createXml() {
 }
 
 void AnimatePacker::loadXml() {
-    QString path = QFileDialog::getOpenFileName(this, tr("Choose to file"), ".",
-                                                tr("Xml Files(*.xml)"));
-
+    // 弹窗获取文件路径
+    QString path = QFileDialog::getOpenFileName(this, tr("Choose to file"), ".", tr("Xml Files(*.xml)"));
+    // 检测
     if (path.isEmpty()) {
         return;
     }
-
+    // 创建新的XML
     createXml(); //清除
-
+    // 读取
     openXml(path);
 }
 
+///!TODO: 使用firstChild/lastChild扩展性有问题，最好匹配<key>然后取next
 void AnimatePacker::openXml(QString path) {
+    // 记录文件路径
     this->path = path;
-
+    // 初始化
     QFile file(path);
     QFileInfo fileInfo(path);
-    QString dir = fileInfo.absolutePath(); //获取xml所在路径
-
+    // 获取xml所在路径
+    QString dir = fileInfo.absolutePath();
+    // 处理文件无法打开
     if (!file.open(QIODevice::ReadOnly | QFile::Text)) {
         QMessageBox::warning(
                     this,
                     QObject::tr("Read failure"),
-                    QObject::tr("Cannot read file \n%1\n%2").arg(file.fileName()).arg(
-                        file.errorString()));
-        return; //文件无法打开
+                    QObject::tr("Cannot read file \n%1\n%2")
+                        .arg(file.fileName())
+                        .arg(file.errorString())
+        );
+        return;
     }
-
+    // DOM文件对象
     QDomDocument doc;
-
+    // 处理文件无法被DOM解析
     QString errorStr;
     int errorLine;
     int errorColumn;
-
     if (!doc.setContent(&file, false, &errorStr, &errorLine, &errorColumn)) {
         QMessageBox::warning(
                     this,
@@ -156,60 +161,65 @@ void AnimatePacker::openXml(QString path) {
                         errorColumn));
         return; //加载文件出错
     }
+    // 根字典
+    QDomElement rootDict = doc.documentElement().firstChildElement("dict");
 
-    QDomElement root = doc.documentElement(); //根为root元素
-
-    //plist
-    QDomNodeList plistNodeList = root.elementsByTagName("plist");
-    for (unsigned int i = 0; i < plistNodeList.length(); i++) {
-        QDomElement plistElement = plistNodeList.at(i).toElement();
-
-        ui.plistList->addItem(plistElement.text());
-
-        //读取plist，添加sprite
-        QString plistPath = dir + QDir::separator() + plistElement.text();
+    // 处理properties字典
+    QDomElement plistArray = rootDict.lastChildElement("dict").firstChildElement("array");
+    for (unsigned int i = 0; i < plistArray.childNodes().length(); ++i) {
+        // 添加到UI的Plist列表
+        QDomElement plistNode = plistArray.childNodes().at(i).toElement();
+        ui.plistList->addItem(plistNode.text());
+        // 读取plist，添加sprite
+        QString plistPath = dir + QDir::separator() + plistNode.text();
         addPlist(plistPath);
     }
 
-    //animation
-    QDomNodeList animationsNodeList = root.elementsByTagName("animation");
-    ui.animationTable->setRowCount(animationsNodeList.length());
-    for (unsigned int i = 0; i < animationsNodeList.length(); i++) {
-        QDomElement animationElement = animationsNodeList.at(i).toElement();
-
-        QTableWidgetItem *nameItem = new QTableWidgetItem(
-                    animationElement.firstChildElement("name").text());
+    // 处理animations字典
+    QDomElement animationsDict = rootDict.firstChildElement("dict");
+    // 动画数量
+    ui.animationTable->setRowCount(animationsDict.childNodes().length() / 2);
+    // 逐个处理
+    for (unsigned int i = 0; i < animationsDict.childNodes().length() / 2; i++) {
+        // 获取当前动画名字以及对应字典
+        QDomElement animation = animationsDict.elementsByTagName("dict").at(i).toElement();
+        QDomElement animationName = animation.previousSibling().toElement();
+        QString name;
+        if(animationName.tagName() == "key")
+            name = animationName.text();
+        // 显示名字
+        qInfo(animationName.text().toStdString().c_str());
+        QTableWidgetItem *nameItem = new QTableWidgetItem(name);
         ui.animationTable->setItem(i, 0, nameItem);
-
-        QTableWidgetItem *delayItem = new QTableWidgetItem(
-                    animationElement.firstChildElement("delay").text());
+        // 显示延迟
+        QTableWidgetItem *delayItem = new QTableWidgetItem(animation.firstChildElement("real").text());
         ui.animationTable->setItem(i, 1, delayItem);
-
+        /*
         QTableWidgetItem *flipXItem= new QTableWidgetItem;
-        flipXItem->setFlags( flipXItem->flags() &~Qt::ItemIsEditable  );//不可编辑
-        bool flipX=animationElement.firstChildElement("flipX").text()=="true"?true:false;
-        flipXItem->setCheckState(flipX?Qt::Checked:Qt::Unchecked);//加入单选
+        flipXItem->setFlags(flipXItem->flags() & ~Qt::ItemIsEditable & ~Qt::ItemIsEnabled);//不可编辑
+        flipXItem->setCheckState(Qt::Unchecked);//加入单选
         ui.animationTable->setItem (i, 2, flipXItem);
 
         QTableWidgetItem *flipYItem= new QTableWidgetItem;
-        flipYItem->setFlags( flipYItem->flags() &~Qt::ItemIsEditable  );//不可编辑
-        bool flipY=animationElement.firstChildElement("flipY").text()=="true"?true:false;
-        flipYItem->setCheckState(flipY?Qt::Checked:Qt::Unchecked);//加入单选
+        flipYItem->setFlags(flipYItem->flags() & ~Qt::ItemIsEditable & ~Qt::ItemIsEnabled);//不可编辑
+        flipYItem->setCheckState(Qt::Unchecked);//加入单选
         ui.animationTable->setItem (i, 3, flipYItem);
-
-        QDomNodeList spriteFrameNodeList = animationElement.elementsByTagName(
-                    "spriteFrame");
+        */
+        // 显示帧序列
+        QDomNodeList framesArray = animation.firstChildElement("array").childNodes();
+        // 创建一个新的动画列表
         SpriteFramesList *spriteFrameList = new SpriteFramesList(this);
         spriteFramesLists.push_back(spriteFrameList);
-        for (unsigned int j = 0; j < spriteFrameNodeList.length(); j++) {
-            QDomElement spriteFrameElement = spriteFrameNodeList.at(j).toElement();
-
-            QString spriteName=spriteFrameElement.text();
-            QImage image=spriteNameToImageMap[spriteName] ;
-            spriteFrameList->addItem(new QListWidgetItem(QIcon(QPixmap::fromImage(image)), spriteName));
+        // 写入每个帧
+        for (unsigned int j = 0; j < framesArray.length(); j++) {
+            QDomElement frame = framesArray.at(j).toElement();
+            QString frameName = frame.text();
+            qInfo(frameName.toStdString().c_str());
+            QImage image = spriteNameToImageMap[frameName] ;
+            spriteFrameList->addItem(new QListWidgetItem(QIcon(QPixmap::fromImage(image)), frameName));
         }
     }
-
+    // 关闭文件
     file.close();
 }
 
@@ -245,12 +255,12 @@ void AnimatePacker::saveXml() {
     instruction = doc.createProcessingInstruction("xml", "version=\"1.0\" encoding=\"UTF-8\"");
     doc.appendChild(instruction);
     // Plist
-    QDomElement plistsElement = doc.createElement("plists");
+    QDomElement plistsElement = doc.createElement("plist");
     plistsElement.setAttribute("version", "1.0");
     doc.appendChild(plistsElement);
     // 根Dict
     QDomElement rootDict = doc.createElement("dict");
-    doc.appendChild(rootDict);
+    plistsElement.appendChild(rootDict);
     // key = animations
     QDomElement key = doc.createElement("key");
     key.appendChild(doc.createTextNode("animations"));
@@ -267,6 +277,14 @@ void AnimatePacker::saveXml() {
         // 该动画字典
         QDomElement nowDict = doc.createElement("dict");
         animationsDict.appendChild(nowDict);
+        /*
+        key = doc.createElement("key");
+        key.appendChild(doc.createTextNode("loops"));
+        nowDict.appendChild(key);
+        QDomElement loop = doc.createElement("integer");
+        loop.appendChild(doc.createTextNode("-1"));
+        nowDict.appendChild(loop);
+        //*/
         // 写入延迟
         key = doc.createElement("key");
         key.appendChild(doc.createTextNode("delay"));
@@ -275,6 +293,9 @@ void AnimatePacker::saveXml() {
         delay.appendChild(doc.createTextNode(ui.animationTable->item(i, 1)->text()));
         nowDict.appendChild(delay);
         // 写入动画帧
+        key = doc.createElement("key");
+        key.appendChild(doc.createTextNode("frames"));
+        nowDict.appendChild(key);
         QDomElement framesArray = doc.createElement("array");
         nowDict.appendChild(framesArray);
         QListWidget *spriteFramesList = spriteFramesLists[i];
@@ -284,6 +305,30 @@ void AnimatePacker::saveXml() {
             framesArray.appendChild(frame);
         }
     }
+    // 写入属性
+    key = doc.createElement("key");
+    key.appendChild(doc.createTextNode("properties"));
+    rootDict.appendChild(key);
+    QDomElement propertiesDict = doc.createElement("dict");
+    rootDict.appendChild(propertiesDict);
+    //
+    key = doc.createElement("key");
+    key.appendChild(doc.createTextNode("spritesheets"));
+    propertiesDict.appendChild(key);
+    //
+    QDomElement plists = doc.createElement("array");
+    propertiesDict.appendChild(plists);
+    for (int i = 0; i < ui.plistList->count(); i++) {
+        QDomElement pl = doc.createElement("string");
+        pl.appendChild(doc.createTextNode(ui.plistList->item(i)->text()));
+        plists.appendChild(pl);
+    }
+    key = doc.createElement("key");
+    key.appendChild(doc.createTextNode("format"));
+    propertiesDict.appendChild(key);
+    key = doc.createElement("integer");
+    key.appendChild(doc.createTextNode("1"));
+    propertiesDict.appendChild(key);
     // 输出文件
     QTextStream out(&file);
     // tab为4个空格长度
@@ -610,6 +655,7 @@ void AnimatePacker::createAnimation() {
     //填入缺省值
     ui.animationTable->setItem (currentRow, 0, new QTableWidgetItem(QString("untitle")+QString::number(currentRow)));
     ui.animationTable->setItem (currentRow, 1, new QTableWidgetItem("0.3"));
+    /*
     QTableWidgetItem *flipXItem= new QTableWidgetItem;
     flipXItem->setFlags( flipXItem->flags() &~Qt::ItemIsEditable  );//不可编辑
     flipXItem->setCheckState(Qt::Unchecked);//加入单选
@@ -618,6 +664,7 @@ void AnimatePacker::createAnimation() {
     flipYItem->setFlags( flipXItem->flags() &~Qt::ItemIsEditable  );//不可编辑
     flipYItem->setCheckState(Qt::Unchecked);//加入单选
     ui.animationTable->setItem (currentRow, 3, flipYItem);
+    */
 
     //	changeSpriteFramesList(currentRow);
 }
@@ -643,7 +690,7 @@ void AnimatePacker::copyAnimation(){
     ui.animationTable->setItem (rowCount, 0, new QTableWidgetItem(QString("untitle")+QString::number(rowCount)));
     QString delay=ui.animationTable->item(currentRow,1)->text();
     ui.animationTable->setItem (rowCount, 1, new QTableWidgetItem(delay));
-
+    /*
     QTableWidgetItem *flipXItem= new QTableWidgetItem;
     flipXItem->setFlags( flipXItem->flags() &~Qt::ItemIsEditable  );//不可编辑
     Qt::CheckState flipXCheckState=ui.animationTable->item(currentRow,2)->checkState();
@@ -655,6 +702,7 @@ void AnimatePacker::copyAnimation(){
     Qt::CheckState flipYCheckState=ui.animationTable->item(currentRow,3)->checkState();
     flipYItem->setCheckState(flipYCheckState);//加入单选
     ui.animationTable->setItem (rowCount, 3, flipYItem);
+    */
 
     SpriteFramesList *destSpriteFramesList=new SpriteFramesList(this);
     spriteFramesLists.push_back(destSpriteFramesList);
@@ -739,7 +787,7 @@ void AnimatePacker::changePreviewSpriteFrame(QListWidgetItem * current,
 
         //缩放处理
         pixmap=pixmap.scaled(image.size() * zoom, Qt::IgnoreAspectRatio, Qt::FastTransformation);
-
+        /*
         //通过判断QListWidgetItem的上层QListWidget来确认是否需要调用翻转功能
         if(current->listWidget()!=ui.spritesList){
             //镜像处理
@@ -750,7 +798,7 @@ void AnimatePacker::changePreviewSpriteFrame(QListWidgetItem * current,
             matrix.scale(flipX,flipY);
             pixmap=pixmap.transformed(matrix, Qt::FastTransformation);
         }
-
+        */
         ui.imageLabel->setPixmap(pixmap);
     } else {
         ui.imageLabel->clear();

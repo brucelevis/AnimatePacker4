@@ -10,18 +10,15 @@
 AnimationsTable::AnimationsTable(QWidget *parent) :
 		QTableWidget(parent) {
 	connect(this, SIGNAL(itemSelectionChanged()), this, SLOT(changeItem()));
-
-	//均分列宽
-    //horizontalHeader()->setResizeMode(QHeaderView::Stretch);
-    horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
-
-	//添加快捷键，获得焦点时，点delete删除item
+    // 添加快捷键，获得焦点时，点delete删除item
 	QShortcut* shortcut = new QShortcut(QKeySequence(Qt::Key_Delete), this);
 	shortcut->setContext(Qt::WidgetWithChildrenShortcut);
 	connect(shortcut, SIGNAL(activated()), this, SLOT(deleteItem()));
-
-    setSelectionBehavior ( QAbstractItemView::SelectRows); //设置选择行为，以行为单位
-    setSelectionMode ( QAbstractItemView::SingleSelection); //设置选择模式，选择单行
+    // 设置选择行为，选择模式
+    setSelectionBehavior(QAbstractItemView::SelectRows);
+    setSelectionMode(QAbstractItemView::SingleSelection);
+    // 设置拉伸
+    setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
 }
 
 AnimationsTable::~AnimationsTable() {
