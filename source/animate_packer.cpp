@@ -21,12 +21,6 @@ AnimatePacker::AnimatePacker(QWidget *parent) :	QMainWindow(parent) {
     isPlaying = false;
     zoom = 1;
 
-    fillBackground(ui.label, QColor(199, 237, 204));
-    fillBackground(ui.label_2, QColor(199, 237, 204));
-    fillBackground(ui.label_3, QColor(199, 237, 204));
-    fillBackground(ui.label_4, QColor(199, 237, 204));
-    fillBackground(ui.label_5, QColor(199, 237, 204));
-
     connect(ui.plistList, SIGNAL(plistDeleted(QString)), this,SLOT(removePlist(QString)));
     connect(ui.animationTable, SIGNAL(animationSelected(int)), this,SLOT(openSpritesFramesList(int)));
     connect(ui.animationTable, SIGNAL(animationDeleted(int)), this,	SLOT(deleteSpritesFramesList(int)));
@@ -194,17 +188,6 @@ void AnimatePacker::openXml(QString path) {
         // 显示延迟
         QTableWidgetItem *delayItem = new QTableWidgetItem(animation.firstChildElement("real").text());
         ui.animationTable->setItem(i, 1, delayItem);
-        /*
-        QTableWidgetItem *flipXItem= new QTableWidgetItem;
-        flipXItem->setFlags(flipXItem->flags() & ~Qt::ItemIsEditable & ~Qt::ItemIsEnabled);//不可编辑
-        flipXItem->setCheckState(Qt::Unchecked);//加入单选
-        ui.animationTable->setItem (i, 2, flipXItem);
-
-        QTableWidgetItem *flipYItem= new QTableWidgetItem;
-        flipYItem->setFlags(flipYItem->flags() & ~Qt::ItemIsEditable & ~Qt::ItemIsEnabled);//不可编辑
-        flipYItem->setCheckState(Qt::Unchecked);//加入单选
-        ui.animationTable->setItem (i, 3, flipYItem);
-        */
         // 显示帧序列
         QDomNodeList framesArray = animation.firstChildElement("array").childNodes();
         // 创建一个新的动画列表
@@ -215,8 +198,9 @@ void AnimatePacker::openXml(QString path) {
             QDomElement frame = framesArray.at(j).toElement();
             QString frameName = frame.text();
             qInfo(frameName.toStdString().c_str());
-            QImage image = spriteNameToImageMap[frameName] ;
-            spriteFrameList->addItem(new QListWidgetItem(QIcon(QPixmap::fromImage(image)), frameName));
+            QImage image = spriteNameToImageMap[frameName];
+            qInfo("%d\n", image.format());
+            spriteFrameList->addItem(new QListWidgetItem(QIcon(QPixmap::fromImage(image, Qt::AvoidDither)), frameName));
         }
     }
     // 关闭文件
@@ -277,14 +261,6 @@ void AnimatePacker::saveXml() {
         // 该动画字典
         QDomElement nowDict = doc.createElement("dict");
         animationsDict.appendChild(nowDict);
-        /*
-        key = doc.createElement("key");
-        key.appendChild(doc.createTextNode("loops"));
-        nowDict.appendChild(key);
-        QDomElement loop = doc.createElement("integer");
-        loop.appendChild(doc.createTextNode("-1"));
-        nowDict.appendChild(loop);
-        //*/
         // 写入延迟
         key = doc.createElement("key");
         key.appendChild(doc.createTextNode("delay"));
@@ -311,11 +287,11 @@ void AnimatePacker::saveXml() {
     rootDict.appendChild(key);
     QDomElement propertiesDict = doc.createElement("dict");
     rootDict.appendChild(propertiesDict);
-    //
+    // 写入采用的plist文件名
     key = doc.createElement("key");
     key.appendChild(doc.createTextNode("spritesheets"));
     propertiesDict.appendChild(key);
-    //
+    // 逐个plist写入
     QDomElement plists = doc.createElement("array");
     propertiesDict.appendChild(plists);
     for (int i = 0; i < ui.plistList->count(); i++) {
@@ -323,6 +299,7 @@ void AnimatePacker::saveXml() {
         pl.appendChild(doc.createTextNode(ui.plistList->item(i)->text()));
         plists.appendChild(pl);
     }
+    // 写入Cocos2dx plist格式执行 (指定为格式1)
     key = doc.createElement("key");
     key.appendChild(doc.createTextNode("format"));
     propertiesDict.appendChild(key);
@@ -497,7 +474,8 @@ void AnimatePacker::addPlist(QString path) {
         }
 
         QImage image(w,h, QImage::Format_ARGB32);
-//        image.fill(Qt::red);
+        // 填充透明背景
+        image.fill(qRgba(0, 0, 0, 0));
         QPainter painter(&image);
 
         painter.translate(x,y);
@@ -521,7 +499,6 @@ void AnimatePacker::addPlist(QString path) {
 
 void AnimatePacker::removePlist(QString name) {
     //因为各种原因，我并没有把Plist对应那些Sprite在程序内存中保存，所以移除Plist时，会把该Plist打开，并遍历Sprite删除
-
     QFileInfo fileInfo(this->path);
     QString path = fileInfo.absolutePath() + QDir::separator() + name; //获取xml所在路径
     QFile file(path);
@@ -655,18 +632,8 @@ void AnimatePacker::createAnimation() {
     //填入缺省值
     ui.animationTable->setItem (currentRow, 0, new QTableWidgetItem(QString("untitle")+QString::number(currentRow)));
     ui.animationTable->setItem (currentRow, 1, new QTableWidgetItem("0.3"));
-    /*
-    QTableWidgetItem *flipXItem= new QTableWidgetItem;
-    flipXItem->setFlags( flipXItem->flags() &~Qt::ItemIsEditable  );//不可编辑
-    flipXItem->setCheckState(Qt::Unchecked);//加入单选
-    ui.animationTable->setItem (currentRow, 2, flipXItem);
-    QTableWidgetItem *flipYItem= new QTableWidgetItem;
-    flipYItem->setFlags( flipXItem->flags() &~Qt::ItemIsEditable  );//不可编辑
-    flipYItem->setCheckState(Qt::Unchecked);//加入单选
-    ui.animationTable->setItem (currentRow, 3, flipYItem);
-    */
-
-    //	changeSpriteFramesList(currentRow);
+    //更新显示
+    changeSpriteFramesList(currentRow);
 }
 
 void AnimatePacker::changeAnimationAttribute(QTableWidgetItem* item){
@@ -690,19 +657,6 @@ void AnimatePacker::copyAnimation(){
     ui.animationTable->setItem (rowCount, 0, new QTableWidgetItem(QString("untitle")+QString::number(rowCount)));
     QString delay=ui.animationTable->item(currentRow,1)->text();
     ui.animationTable->setItem (rowCount, 1, new QTableWidgetItem(delay));
-    /*
-    QTableWidgetItem *flipXItem= new QTableWidgetItem;
-    flipXItem->setFlags( flipXItem->flags() &~Qt::ItemIsEditable  );//不可编辑
-    Qt::CheckState flipXCheckState=ui.animationTable->item(currentRow,2)->checkState();
-    flipXItem->setCheckState(flipXCheckState);//加入单选
-    ui.animationTable->setItem (rowCount, 2, flipXItem);
-
-    QTableWidgetItem *flipYItem= new QTableWidgetItem;
-    flipYItem->setFlags( flipXItem->flags() &~Qt::ItemIsEditable  );//不可编辑
-    Qt::CheckState flipYCheckState=ui.animationTable->item(currentRow,3)->checkState();
-    flipYItem->setCheckState(flipYCheckState);//加入单选
-    ui.animationTable->setItem (rowCount, 3, flipYItem);
-    */
 
     SpriteFramesList *destSpriteFramesList=new SpriteFramesList(this);
     spriteFramesLists.push_back(destSpriteFramesList);
@@ -784,21 +738,8 @@ void AnimatePacker::changePreviewSpriteFrame(QListWidgetItem * current,
     if (current) {
         QImage image = spriteNameToImageMap[current->text()];
         QPixmap pixmap=QPixmap::fromImage(image);
-
         //缩放处理
         pixmap=pixmap.scaled(image.size() * zoom, Qt::IgnoreAspectRatio, Qt::FastTransformation);
-        /*
-        //通过判断QListWidgetItem的上层QListWidget来确认是否需要调用翻转功能
-        if(current->listWidget()!=ui.spritesList){
-            //镜像处理
-            int currentRow=ui.animationTable->currentRow();
-            qreal flipX=ui.animationTable->item(currentRow,2)->checkState()==Qt::Checked?-1:1;
-            qreal flipY=ui.animationTable->item(currentRow,3)->checkState()==Qt::Checked?-1:1;
-            QTransform matrix;
-            matrix.scale(flipX,flipY);
-            pixmap=pixmap.transformed(matrix, Qt::FastTransformation);
-        }
-        */
         ui.imageLabel->setPixmap(pixmap);
     } else {
         ui.imageLabel->clear();
@@ -861,7 +802,7 @@ void AnimatePacker::changeBackground(){
 #define _____CodeBlockAbout_Other
 
 void AnimatePacker::closeEvent(QCloseEvent *event) {
-    if (true/*okToContinue()*/) {
+    if (true) {
         event->accept(); //事件接受
     } else {
         event->ignore(); //事件取消
@@ -962,9 +903,8 @@ bool AnimatePacker::strToBool(QString boolStr)
 }
 
 void AnimatePacker::fillBackground(QWidget *widget, QColor color) {
-    widget->setAutoFillBackground(true);
-
-    QPalette palette;
-    palette.setColor(QPalette::Background, color);
-    widget->setPalette(palette);
+    char styleSheetBuf[128];
+    sprintf(styleSheetBuf, "background-color: rgb(%d, %d, %d);", color.red(), color.green(), color.blue());
+    QString sheet(styleSheetBuf);
+    widget->setStyleSheet(sheet);
 }
